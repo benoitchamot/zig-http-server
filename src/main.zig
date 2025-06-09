@@ -48,7 +48,10 @@ const HTTPServer = struct {
 
             print("{} connected\n", .{client_address});
 
-            write(socket, "Hello (and goodbye)") catch |err| {
+            // Now we have some HTTP!
+            const simple_message = "HTTP/1.1 200 OK\r\nContent-type: text/html\r\n\r\n<h1>Dummy Server v1.1</h1>";
+
+            write(socket, simple_message) catch |err| {
                 // Handle a client disconnecting
                 print("Error writing: {}\n", .{err});
             };
