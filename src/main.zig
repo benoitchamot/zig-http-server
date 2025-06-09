@@ -33,6 +33,7 @@ const HTTPServer = struct {
         try posix.bind(listener, &self.address.any, self.address.getOsSockLen());
         try posix.listen(listener, 128);
 
+        // Infinite loop with a blocking listener
         while (true) {
             var client_address: net.Address = undefined;
             var client_address_len: posix.socklen_t = @sizeOf(net.Address);
@@ -41,16 +42,32 @@ const HTTPServer = struct {
                                         &client_address.any,
                                         &client_address_len,
                                         0) catch |err| {
-                print("Error acces: {}\n", .{err});
+                print("Error access: {}\n", .{err});
                 continue;
             };
             defer posix.close(socket);
 
             print("{} connected\n", .{client_address});
 
+            // Prepare some code to read requests
+            // The read data are in buf[0..read]
+            // const read = posix.read(socket, &buf) catch |err| {
+            // print("Error reading: {}\n", .{err});
+            // continue;
+            // }
+            // if (read == 0) {
+            // continue;
+            // }
+            //
+            // Parse the request
+            // parseRequest(buf[0..read]) catch |err| {
+            // print("Error parsing: {}\n", .{err})
+            // }
+
             // Construct a simple message with some HTML
             const simple_message = respondWithDefaultHtml();
 
+            // Handle request
             write(socket, simple_message) catch |err| {
                 // Handle a client disconnecting
                 print("Error writing: {}\n", .{err});
