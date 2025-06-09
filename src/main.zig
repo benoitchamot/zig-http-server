@@ -48,14 +48,25 @@ const HTTPServer = struct {
 
             print("{} connected\n", .{client_address});
 
-            // Now we have some HTTP!
-            const simple_message = "HTTP/1.1 200 OK\r\nContent-type: text/html\r\n\r\n<h1>Dummy Server v1.1</h1>";
+            // Construct a simple message with some HTML
+            const simple_message = respondWithDefaultHtml();
 
             write(socket, simple_message) catch |err| {
                 // Handle a client disconnecting
                 print("Error writing: {}\n", .{err});
             };
         }
+    }
+
+    fn respondWithDefaultHtml() []const u8 {
+        // This works only at comptime
+        // TODO: look into dynamic alloc: https://gencmurat.com/en/posts/zig-strings/
+        const responseLine = "HTTP/1.1 200 OK";
+        const headers = "Content-type: text/html";
+        const breakLine = "\r\n";
+        const htmlBody = "<h1>Dummy Server v0.1 Alpha</h1>";
+
+        return responseLine ++ "\r\n" ++ headers ++ "\r\n" ++ breakLine ++ htmlBody;
     }
 
     fn write(socket: posix.socket_t, msg: []const u8) !void {
