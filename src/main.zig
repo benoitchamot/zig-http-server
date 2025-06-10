@@ -84,13 +84,34 @@ const HTTPServer = struct {
         }
     }
 
+    fn readHtmlFile(allocator: Allocator, folder: []const u8, filename: []const u8) ![]u8 {
+        const maxSize = 2_000_000; // That seems like a reasonable max size...
+
+        // Get the the folder and open the file
+        const cwd = std.fs.cwd();
+
+        var siteDirectory = try cwd.openDir(folder, .{});
+        const file = try siteDirectory.openFile(filename, .{});
+        defer file.close();
+
+        // Read from the file
+        const htmlPage = try file.readToEndAlloc(allocator, maxSize);
+        return htmlPage;
+    }
+
     fn respondWithDefaultHtml(allocator: Allocator) ![]const u8 {
         // This works only at comptime
         // TODO: look into dynamic alloc: https://gencmurat.com/en/posts/zig-strings/
         const responseLine = "HTTP/1.1 200 OK";
         const headers = "Content-type: text/html";
         //const breakLine = "\r\n";
-        const htmlBody = "<h1>Dummy Server v0.1 Alpha</h1>\n<p>You're doing it you bastard</p>";
+        //const htmlBody = "<h1>Dummy Server v0.1 Alpha</h1>\n<p>You're doing it you bastard</p>";
+
+        // Retrieve HTML content
+        // Would it be wise to declare another allocator so it get cleared here?
+        const folder = "www";
+        const filename = "index.html";
+        const htmlContent = try readHtmlFile(allocator, folder, filename); 
 
         // Response line + CRLF
         var response = try strings.concat(allocator, responseLine, "\r\n");
@@ -102,7 +123,7 @@ const HTTPServer = struct {
         response = try strings.concat(allocator, response, "\r\n\r\n");
 
         // Add HTML
-        response = try strings.concat(allocator, response, htmlBody);
+        response = try strings.concat(allocator, response, htmlContent);
 
         return response;
         // return responseLine ++ "\r\n" ++ headers ++ "\r\n" ++ breakLine ++ htmlBody;
