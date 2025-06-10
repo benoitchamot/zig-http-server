@@ -7,6 +7,11 @@ const posix = std.posix;
 const Allocator = std.mem.Allocator;
 const print = std.debug.print;
 
+// Some errors
+const RequestError = error {
+    Unsupported,
+};
+
 
 const HTTPServer = struct {
     address: net.Address,
@@ -35,6 +40,13 @@ const HTTPServer = struct {
 
         try posix.bind(listener, &self.address.any, self.address.getOsSockLen());
         try posix.listen(listener, 128);
+        
+        // Allocator used by the server
+        var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+        defer arena.deinit();
+
+        const allocator = arena.allocator();
+
 
         // Infinite loop with a blocking listener
         while (true) {
@@ -54,35 +66,69 @@ const HTTPServer = struct {
 
             // Prepare some code to read requests
             // The read data are in buf[0..read]
-            // const read = posix.read(socket, &buf) catch |err| {
-            // print("Error reading: {}\n", .{err});
-            // continue;
-            // }
-            // if (read == 0) {
-            // continue;
-            // }
-            //
-            // Parse the request
-            // parseRequest(buf[0..read]) catch |err| {
-            // print("Error parsing: {}\n", .{err})
-            // }
-
-
-            var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-            defer arena.deinit();
-
-            const allocator = arena.allocator();
-
-            // Construct a simple message with some HTML
-            const simple_message = try respondWithDefaultHtml(allocator);
-
-            // Handle request
-            write(socket, simple_message) catch |err| {
-                // Handle a client disconnecting
-                print("Error writing: {}\n", .{err});
+            const buf = try allocator.alloc(u8, 500_000);
+            const read = posix.read(socket, buf) catch |err| {
+                print("Error reading: {}\n", .{err});
+                continue;
             };
+            if (read == 0) {
+                continue;
+            }
+
+            // Parse the request
+            const pageName = parseRequest(buf[0..read]);
+            if (pageName) |value| {
+                // Construct a simple message with some HTML
+                //const pageName = "index.html";
+                print("{s}\n", .{value.?});
+                const simple_message = try respondWithHtml(allocator, value orelse "index.html");
+
+                // Handle request
+                write(socket, simple_message) catch |err| {
+                    // Handle a client disconnecting
+                    print("Error writing: {}\n", .{err});
+                };
+            }
+            else |err| switch (err) {
+                RequestError.Unsupported => print("Unsupported request.", .{}),
+                else => unreachable
+            }
         }
     }
+
+    fn parseRequest(request: []const u8) RequestError!?[]const u8 {
+        // Get the first line of the request
+        // var firstLine = try allocator.alloc(u8, 1000);
+        var eolIndex: usize = undefined;
+        if (std.mem.indexOf(u8, request, "\r\n")) |index| {
+            //firstLine = request[0..index];
+            eolIndex = index;
+        }
+        else {
+            unreachable;
+        }
+
+        // Split the first line based on spaces
+        var firstLineArray = std.mem.splitSequence(u8, request[0..eolIndex], " ");
+
+        // Make sure it's a GET and if it is, return the page
+        if (std.mem.eql(u8, firstLineArray.first(), "GET")) {
+            if (std.mem.eql(u8, firstLineArray.peek().?, "/")) {
+                return "index.html";
+            }
+            else if (std.mem.indexOf(u8, firstLineArray.peek().?, ".html")) |_| {
+                // Drop the leading /
+                return firstLineArray.next().?[1..];
+            }
+            else {
+                return RequestError.Unsupported;
+            }
+        }
+        else {
+            return RequestError.Unsupported;
+        }
+    }
+
 
     fn readHtmlFile(allocator: Allocator, folder: []const u8, filename: []const u8) ![]u8 {
         const maxSize = 2_000_000; // That seems like a reasonable max size...
@@ -99,7 +145,7 @@ const HTTPServer = struct {
         return htmlPage;
     }
 
-    fn respondWithDefaultHtml(allocator: Allocator) ![]const u8 {
+    fn respondWithHtml(allocator: Allocator, filename: []const u8) ![]const u8 {
         // This works only at comptime
         // TODO: look into dynamic alloc: https://gencmurat.com/en/posts/zig-strings/
         const responseLine = "HTTP/1.1 200 OK";
@@ -110,7 +156,6 @@ const HTTPServer = struct {
         // Retrieve HTML content
         // Would it be wise to declare another allocator so it get cleared here?
         const folder = "www";
-        const filename = "index.html";
         const htmlContent = try readHtmlFile(allocator, folder, filename); 
 
         // Response line + CRLF
