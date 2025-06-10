@@ -1,9 +1,12 @@
 const std = @import("std");
+const strings = @import("strings.zig");
 const net = std.net;
 const posix = std.posix;
 
-// Some shortcut as I feel I'm gonna need this a lot...
+// Some shortcuts as I feel I'm gonna need this a lot...
+const Allocator = std.mem.Allocator;
 const print = std.debug.print;
+
 
 const HTTPServer = struct {
     address: net.Address,
@@ -64,8 +67,14 @@ const HTTPServer = struct {
             // print("Error parsing: {}\n", .{err})
             // }
 
+
+            var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+            defer arena.deinit();
+
+            const allocator = arena.allocator();
+
             // Construct a simple message with some HTML
-            const simple_message = respondWithDefaultHtml();
+            const simple_message = try respondWithDefaultHtml(allocator);
 
             // Handle request
             write(socket, simple_message) catch |err| {
@@ -75,15 +84,28 @@ const HTTPServer = struct {
         }
     }
 
-    fn respondWithDefaultHtml() []const u8 {
+    fn respondWithDefaultHtml(allocator: Allocator) ![]const u8 {
         // This works only at comptime
         // TODO: look into dynamic alloc: https://gencmurat.com/en/posts/zig-strings/
         const responseLine = "HTTP/1.1 200 OK";
         const headers = "Content-type: text/html";
-        const breakLine = "\r\n";
-        const htmlBody = "<h1>Dummy Server v0.1 Alpha</h1>";
+        //const breakLine = "\r\n";
+        const htmlBody = "<h1>Dummy Server v0.1 Alpha</h1>\n<p>You're doing it you bastard</p>";
 
-        return responseLine ++ "\r\n" ++ headers ++ "\r\n" ++ breakLine ++ htmlBody;
+        // Response line + CRLF
+        var response = try strings.concat(allocator, responseLine, "\r\n");
+        
+        // Add headers
+        response = try strings.concat(allocator, response, headers);
+
+        // Add breakline
+        response = try strings.concat(allocator, response, "\r\n\r\n");
+
+        // Add HTML
+        response = try strings.concat(allocator, response, htmlBody);
+
+        return response;
+        // return responseLine ++ "\r\n" ++ headers ++ "\r\n" ++ breakLine ++ htmlBody;
     }
 
     fn write(socket: posix.socket_t, msg: []const u8) !void {
@@ -102,10 +124,9 @@ const HTTPServer = struct {
 pub fn main() !void {
     // Some global constant stuff
     const address = try net.Address.parseIp("127.0.0.1", 8888);
-    
-    const server = HTTPServer.init(address);
+
+    // Run server
     print("Welcome to my Server\n", .{});
-
+    const server = HTTPServer.init(address);
     try server.start();
-
 }
