@@ -1,0 +1,27 @@
+Welcome to my Server
+127.0.0.1:56238 connected
+app.html
+127.0.0.1:56240 connected
+Unsupported request.127.0.0.1:56244 connected
+index.html
+127.0.0.1:56250 connected
+Unsupported request.127.0.0.1:56266 connected
+app.html
+127.0.0.1:56278 connected
+Unsupported request.127.0.0.1:40934 connected
+index.html
+127.0.0.1:40950 connected
+Unsupported request.127.0.0.1:40964 connected
+app.html
+127.0.0.1:40968 connected
+Unsupported request.127.0.0.1:40972 connected
+index.html
+127.0.0.1:40984 connected
+Unsupported request.127.0.0.1:40986 connected
+app.html
+127.0.0.1:40992 connected
+Unsupported request.127.0.0.1:40996 connected
+index.html
+127.0.0.1:41000 connected
+Unsupported request.error: the following build command crashed:
+/home/benny/Repos/http-server/zig/.zig-cache/o/84bd023b0368f9cd39ec03a52ddfd405/build /usr/bin/zig /home/benny/Repos/http-server/zig /home/benny/Repos/http-server/zig/.zig-cache /home/benny/.cache/zig --seed 0xc53f7438 -Z2677b156c5591fa1 run
